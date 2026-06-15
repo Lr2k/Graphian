@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graphian"
+version = "0.1.0"
+description = "身体と環境への応答を通じて情報処理ネットワークを発達させる存在を作る試み(初版骨格)"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.24"]
+
+[project.scripts]
+graphian = "graphian.ui.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "hypothesis>=6"]
+
+[tool.setuptools.packages.find]
+include = ["graphian*"]
+
+[tool.pytest.ini_options]
+# リポジトリルートを sys.path に置き、`import graphian` を解決する(editable install 不要)。
+pythonpath = ["."]
+testpaths = ["tests"]

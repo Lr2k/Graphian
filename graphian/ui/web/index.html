@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graphian 可視化</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+
+  /* ─── サイドバー ─── */
+  #sidebar { width: 220px; min-width: 180px; background: #1a1d27; border-right: 1px solid #2e3244; display: flex; flex-direction: column; overflow: hidden; }
+  #sidebar h1 { font-size: 0.95rem; padding: 14px 12px 10px; color: #7c8cf8; letter-spacing: 0.05em; border-bottom: 1px solid #2e3244; }
+  .sidebar-section { padding: 8px; border-bottom: 1px solid #2e3244; }
+  .sidebar-section label { font-size: 0.7rem; color: #888; text-transform: uppercase; display: block; margin-bottom: 4px; letter-spacing: 0.07em; }
+  .sidebar-list { list-style: none; overflow-y: auto; max-height: 130px; }
+  .sidebar-list li { padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; color: #bbb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-list li:hover { background: #252840; color: #e0e0e0; }
+  .sidebar-list li.active { background: #2d3178; color: #a8b4ff; }
+  #trial-list li { font-variant-numeric: tabular-nums; }
+  .trial-fitness { float: right; color: #7c8; font-size: 0.75rem; }
+  .trial-dead { float: right; color: #e77; font-size: 0.75rem; }
+  #status { margin-top: auto; padding: 8px; font-size: 0.7rem; color: #555; border-top: 1px solid #2e3244; }
+
+  /* ─── メインエリア ─── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* タブバー */
+  #tabs { display: flex; background: #13151f; border-bottom: 1px solid #2e3244; }
+  .tab { padding: 10px 20px; cursor: pointer; font-size: 0.85rem; color: #888; border-bottom: 2px solid transparent; user-select: none; }
+  .tab:hover { color: #ccc; }
+  .tab.active { color: #a8b4ff; border-bottom-color: #7c8cf8; }
+
+  /* タブパネル */
+  .panel { display: none; flex: 1; padding: 16px; overflow-y: auto; }
+  .panel.active { display: flex; flex-direction: column; gap: 12px; }
+
+  /* チャートカード */
+  .card { background: #1a1d27; border: 1px solid #2e3244; border-radius: 6px; padding: 12px; }
+  .card h3 { font-size: 0.8rem; color: #888; margin-bottom: 10px; letter-spacing: 0.05em; }
+  .chart-wrap { position: relative; height: 180px; }
+
+  /* ネットワーク SVG */
+  #network-svg-wrap { display: flex; justify-content: center; align-items: flex-start; }
+  #network-svg { background: #12141e; border-radius: 6px; border: 1px solid #2e3244; }
+  .net-legend { font-size: 0.72rem; color: #888; display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+  .net-legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  /* 系統樹 SVG */
+  #lineage-svg-wrap { overflow: auto; }
+  #lineage-svg { background: #12141e; border-radius: 6px; border: 1px solid #2e3244; }
+
+  /* 事象ログ */
+  #event-log { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.72rem; line-height: 1.5; overflow-y: auto; max-height: 340px; background: #12141e; border-radius: 4px; padding: 8px; }
+  .ev-row { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px solid #1e2030; }
+  .ev-time { color: #555; flex-shrink: 0; width: 90px; }
+  .ev-type { color: #7c8cf8; flex-shrink: 0; width: 120px; }
+  .ev-body { color: #ccc; word-break: break-all; }
+
+  /* empty state */
+  .empty { color: #555; font-size: 0.85rem; text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<!-- サイドバー -->
+<nav id="sidebar">
+  <h1>🧬 Graphian</h1>
+  <div class="sidebar-section">
+    <label>セッション</label>
+    <ul class="sidebar-list" id="session-list"></ul>
+  </div>
+  <div class="sidebar-section">
+    <label>試行</label>
+    <ul class="sidebar-list" id="trial-list"></ul>
+  </div>
+  <div id="status">データ読込中...</div>
+</nav>
+
+<!-- メインエリア -->
+<main id="main">
+  <div id="tabs">
+    <div class="tab active" data-panel="env">環境モニタ</div>
+    <div class="tab" data-panel="network">ネットワーク</div>
+    <div class="tab" data-panel="lineage">系統樹</div>
+    <div class="tab" data-panel="events">事象ログ</div>
+  </div>
+
+  <!-- 環境モニタ -->
+  <div class="panel active" id="panel-env">
+    <div class="card">
+      <h3>位置 x と エネルギー</h3>
+      <div class="chart-wrap"><canvas id="chart-xe"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>累積適応度</h3>
+      <div class="chart-wrap"><canvas id="chart-fitness"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ネットワーク -->
+  <div class="panel" id="panel-network">
+    <div class="card">
+      <h3>同心円ネットワーク(最終状態)</h3>
+      <div id="network-svg-wrap">
+        <svg id="network-svg" width="440" height="440"></svg>
+      </div>
+      <div class="net-legend">
+        <span><span class="dot" style="background:#f7ca45;border:2px solid #f7ca45"></span>報酬ノード</span>
+        <span><span class="dot" style="background:#5b9bd5"></span>感覚接続点(ENV→PROC)</span>
+        <span><span class="dot" style="background:#e06c6c"></span>運動接続点(PROC→ENV)</span>
+        <span><span class="dot" style="background:#888"></span>通常ノード(値=0付近)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 系統樹 -->
+  <div class="panel" id="panel-lineage">
+    <div class="card">
+      <h3>系統樹(genome の親子関係)</h3>
+      <div id="lineage-svg-wrap">
+        <svg id="lineage-svg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 事象ログ -->
+  <div class="panel" id="panel-events">
+    <div class="card" style="flex:1">
+      <h3>事象ログ (events.jsonl)</h3>
+      <div id="event-log"><div class="empty">セッションを選択してください</div></div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
